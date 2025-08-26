@@ -1,4 +1,4 @@
-
+https://mit-mi.github.io/how2ai-course/spring2025/schedule/ 
 
 > Hypotheses are easier to draft with “Yes-no" questions than "how to" questions.
 > * 是非问题：直接关联变量关系（X是否导致Y），适合验证性研究。
