@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>交互式心理学知识导图</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Warm Neutrals with Slate and Amber accents -->
+    <!-- Application Structure Plan: The application is structured as a single-page interactive dashboard. The core design consists of a filtering system at the top, a summary visualization chart, and a content grid of interactive cards. Users can filter the cards by category ('发展史', '理论体系', '实践应用') to focus their exploration. Clicking on a card reveals detailed information (key figures, core concepts). This structure was chosen to transform a static table into an engaging, explorable experience, allowing users to progressively disclose information based on their interests, which is more user-friendly than presenting all data at once. -->
+    <!-- Visualization & Content Choices: 
+        1. Report Info: Category distribution ('心理学发展史', '理论体系', '实践应用'). Goal: Provide a high-level overview of the content's composition. Viz/Presentation: Horizontal Bar Chart. Interaction: Tooltips on hover. Justification: A bar chart effectively quantifies and compares the number of topics in each category, offering an immediate analytical insight that a simple table cannot. Library: Chart.js (Canvas).
+        2. Report Info: Each psychology field (topic, figures, description, categories). Goal: Organize and present detailed information in a digestible format. Viz/Presentation: Interactive Cards Grid. Interaction: Click to flip/reveal details; filterable by category buttons. Justification: Cards break down information into manageable chunks. The click-to-reveal interaction encourages user engagement and prevents information overload. The filtering mechanism provides powerful control over content discovery. Method: HTML/CSS/Tailwind + JS for interaction logic.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background-color: #fdfbf8; /* A very light, warm off-white */
+        }
+        .filter-btn {
+            transition: all 0.3s ease;
+        }
+        .filter-btn.active {
+            background-color: #475569; /* Slate 600 */
+            color: #ffffff;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+        .psych-card-container {
+            perspective: 1000px;
+        }
+        .psych-card {
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+            cursor: pointer;
+        }
+        .psych-card.is-flipped {
+            transform: rotateY(180deg);
+        }
+        .psych-card-face {
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+            position: absolute;
+            width: 100%;
+            height: 100%;
+        }
+        .psych-card-back {
+            transform: rotateY(180deg);
+            background-color: #f8fafc; /* Slate 50 */
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 250px;
+            max-height: 300px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 300px;
+                max-height: 350px;
+            }
+        }
+    </style>
+</head>
+<body class="text-slate-700">
+
+    <div class="container mx-auto p-4 md:p-8">
+        
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-slate-800 mb-2">交互式心理学知识导图</h1>
+            <p class="text-md text-slate-500 max-w-2xl mx-auto">
+                探索现代心理学的关键领域、代表人物与核心理论。您可以通过下方的分类按钮进行筛选，或点击任意卡片查看详细信息。
+            </p>
+        </header>
+
+        <section id="summary" class="mb-10">
+            <h2 class="text-xl font-semibold text-center mb-4 text-slate-800">领域分类概览</h2>
+            <p class="text-sm text-center text-slate-500 mb-4">此图表展示了当前收录的心理学主题在三大分类中的分布情况。</p>
+            <div class="chart-container">
+                <canvas id="categoryChart"></canvas>
+            </div>
+        </section>
+
+        <main>
+            <div id="filters" class="flex flex-wrap justify-center gap-2 md:gap-4 mb-8">
+                <button data-filter="all" class="filter-btn active text-sm md:text-base bg-white border border-slate-300 text-slate-600 font-medium py-2 px-4 rounded-full hover:bg-slate-100 shadow-sm">全部显示</button>
+                <button data-filter="心理学发展史" class="filter-btn text-sm md:text-base bg-white border border-slate-300 text-slate-600 font-medium py-2 px-4 rounded-full hover:bg-slate-100 shadow-sm">发展史</button>
+                <button data-filter="理论体系" class="filter-btn text-sm md:text-base bg-white border border-slate-300 text-slate-600 font-medium py-2 px-4 rounded-full hover:bg-slate-100 shadow-sm">理论体系</button>
+                <button data-filter="实践应用" class="filter-btn text-sm md:text-base bg-white border border-slate-300 text-slate-600 font-medium py-2 px-4 rounded-full hover:bg-slate-100 shadow-sm">实践应用</button>
+            </div>
+            
+            <div id="card-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            </div>
+        </main>
+        
+        <footer class="text-center mt-12 text-slate-400 text-sm">
+            <p>基于提供的心理学表格数据生成。</p>
+        </footer>
+
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const psychologyData = [
+                {
+                    topic: "科学心理学创立",
+                    figures: ["冯特", "威廉·詹姆斯"],
+                    categories: ["心理学发展史"],
+                    description: "第一个心理学实验室、意识流理论。"
+                },
+                {
+                    topic: "精神分析与人格",
+                    figures: ["弗洛伊德", "荣格", "克莱因", "温尼科特"],
+                    categories: ["心理学发展史", "理论体系"],
+                    description: "关注潜意识、客体关系、集体潜意识，理解人格形成的底层动力。"
+                },
+                {
+                    topic: "行为主义与行为改变",
+                    figures: ["华生", "斯金纳", "班杜拉"],
+                    categories: ["心理学发展史", "实践应用"],
+                    description: "小阿尔伯特实验、操作性条件反射、社会学习理论，用强化、自我效能感设计微小行动，替代\"意志力对抗\"。"
+                },
+                {
+                    topic: "认知与决策",
+                    figures: ["米勒", "西蒙", "卡尼曼", "特沃斯基", "韦格纳"],
+                    categories: ["心理学发展史", "实践应用"],
+                    description: "神奇数字7±2、有限理性、双系统理论，帮助理解认知偏差、思维控制与决策误区。"
+                },
+                {
+                    topic: "社会心理学",
+                    figures: ["津巴多", "米尔格拉姆", "西奥迪尼", "戈特曼"],
+                    categories: ["心理学发展史", "实践应用"],
+                    description: "斯坦福监狱实验、服从权威实验，拆解服从、说服、亲密关系与沟通。"
+                },
+                {
+                    topic: "人本主义与积极心理学",
+                    figures: ["马斯洛", "罗杰斯", "塞利格曼"],
+                    categories: ["心理学发展史", "理论体系"],
+                    description: "需求层次理论、来访者中心疗法，关注人的潜能、幸福与优势。"
+                },
+                {
+                    topic: "存在主义与生命意义",
+                    figures: ["罗杰斯", "弗洛姆", "亚隆", "埃克哈特·托利"],
+                    categories: ["理论体系", "实践应用"],
+                    description: "关注真实自我、爱的本质、生命意义与当下力量。"
+                },
+                {
+                    topic: "创伤与关系疗愈",
+                    figures: ["鲍尔比", "爱丽丝·米勒", "范德考克"],
+                    categories: ["理论体系", "实践应用"],
+                    description: "依恋理论、童年创伤修复、身心疗愈方法。"
+                },
+                {
+                    topic: "东方文化与社会心理",
+                    figures: ["费孝通", "卡伦·霍妮", "曾奇峰"],
+                    categories: ["理论体系", "实践应用"],
+                    description: "差序格局、文化神经症、中国式家庭的本土化解读。"
+                },
+                {
+                    topic: "问题解决与心态",
+                    figures: ["瓦茨拉维克", "吉尔伯特"],
+                    categories: ["实践应用"],
+                    description: "重构问题定义、接纳不确定性，降低\"改变的心理阻力\"。"
+                }
+            ];
+
+            const cardGrid = document.getElementById('card-grid');
+            const filtersContainer = document.getElementById('filters');
+
+            function createCards() {
+                psychologyData.forEach(item => {
+                    const dataCategories = item.categories.join(' ');
+                    
+                    const cardContainer = document.createElement('div');
+                    cardContainer.className = 'psych-card-container h-64';
+                    cardContainer.dataset.categories = dataCategories;
+
+                    const card = document.createElement('div');
+                    card.className = 'psych-card relative w-full h-full';
+                    
+                    const cardFront = document.createElement('div');
+                    cardFront.className = 'psych-card-face flex flex-col justify-center items-center p-4 bg-white rounded-xl shadow-lg border border-slate-200';
+                    cardFront.innerHTML = `
+                        <h3 class="text-lg font-semibold text-center text-slate-800">${item.topic}</h3>
+                        <p class="text-xs text-amber-600 mt-2">点击查看详情</p>
+                    `;
+
+                    const cardBack = document.createElement('div');
+                    cardBack.className = 'psych-card-face psych-card-back flex flex-col p-4 text-sm bg-white rounded-xl shadow-lg border border-slate-200 overflow-y-auto';
+                    cardBack.innerHTML = `
+                        <h4 class="font-bold text-slate-800 mb-2 border-b pb-1">代表人物</h4>
+                        <p class="text-slate-600 mb-3">${item.figures.join('、 ')}</p>
+                        <h4 class="font-bold text-slate-800 mb-2 border-b pb-1">核心概念</h4>
+                        <p class="text-slate-600 mb-3 text-xs leading-relaxed">${item.description}</p>
+                        <h4 class="font-bold text-slate-800 mb-2 border-b pb-1">分类</h4>
+                        <div class="flex flex-wrap gap-1">
+                            ${item.categories.map(cat => `<span class="bg-slate-200 text-slate-600 text-xs font-medium px-2 py-0.5 rounded-full">${cat}</span>`).join('')}
+                        </div>
+                    `;
+                    
+                    card.appendChild(cardFront);
+                    card.appendChild(cardBack);
+                    cardContainer.appendChild(card);
+                    cardGrid.appendChild(cardContainer);
+
+                    card.addEventListener('click', () => {
+                        card.classList.toggle('is-flipped');
+                    });
+                });
+            }
+
+            function setupFilters() {
+                const filterButtons = filtersContainer.querySelectorAll('.filter-btn');
+                const cards = cardGrid.querySelectorAll('.psych-card-container');
+
+                filterButtons.forEach(button => {
+                    button.addEventListener('click', () => {
+                        const filter = button.dataset.filter;
+                        
+                        filterButtons.forEach(btn => btn.classList.remove('active'));
+                        button.classList.add('active');
+
+                        cards.forEach(card => {
+                            const categories = card.dataset.categories;
+                            if (filter === 'all' || categories.includes(filter)) {
+                                card.style.display = 'block';
+                            } else {
+                                card.style.display = 'none';
+                            }
+                        });
+                    });
+                });
+            }
+
+            function createCategoryChart() {
+                const ctx = document.getElementById('categoryChart').getContext('2d');
+                const categoryCounts = {
+                    '心理学发展史': 0,
+                    '理论体系': 0,
+                    '实践应用': 0
+                };
+                
+                psychologyData.forEach(item => {
+                    item.categories.forEach(cat => {
+                        if (categoryCounts.hasOwnProperty(cat)) {
+                            categoryCounts[cat]++;
+                        }
+                    });
+                });
+
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: Object.keys(categoryCounts),
+                        datasets: [{
+                            label: '主题数量',
+                            data: Object.values(categoryCounts),
+                            backgroundColor: [
+                                'rgba(100, 116, 139, 0.6)',
+                                'rgba(245, 158, 11, 0.6)',
+                                'rgba(56, 189, 248, 0.6)'
+                            ],
+                            borderColor: [
+                                'rgba(100, 116, 139, 1)',
+                                'rgba(245, 158, 11, 1)',
+                                'rgba(56, 189, 248, 1)'
+                            ],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: {
+                                beginAtZero: true,
+                                ticks: {
+                                    stepSize: 1
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        let label = context.dataset.label || '';
+                                        if (label) {
+                                            label += ': ';
+                                        }
+                                        if (context.parsed.x !== null) {
+                                            label += context.parsed.x;
+                                        }
+                                        return label;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            
+            createCards();
+            setupFilters();
+            createCategoryChart();
+        });
+    </script>
+</body>
+</html>
