@@ -1,5 +1,7 @@
-
-
+访问项目网页：https://joeyjojojojo.github.io/Trees  
+相关网址 - 心理学家介绍:https://www.hzsz.gd.cn/news/8287.cshtml   
+相关网址 - 心理学主要流派:http://www.psych.ac.cn/kxcb/kpzl_xlbk/kpzl_xlxjc/201010/t20101026_2993359.html  
+相关网址 - 心理学到主要学科分支:http://www.psych.ac.cn/kxcb/kpzl_xlbk/kpzl_xlxjc/201010/t20101026_2993389.html  
 
 
 | **领域/主题** | **代表人物/专家** | **分类** |
